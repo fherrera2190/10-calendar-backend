@@ -3,8 +3,11 @@ const Evento = require("../models/Evento");
 
 const getEventos = async (req, res = response) => {
   try {
-    const eventos = await Evento.find({ user: req.uid }).populate("user", "name");
-    
+    const eventos = await Evento.find({ user: req.uid }).populate(
+      "user",
+      "name"
+    );
+
     res.json({
       ok: true,
       eventos,
@@ -39,20 +42,38 @@ const crearEvento = async (req, res = response) => {
   }
 };
 
-const actualizarEvento = (req, res = response) => {
-  const { id } = req.params;
+const actualizarEvento = async (req, res = response) => {
+  const eventoId = req.params.id;
   const { uid } = req;
+  console.log(uid);
   try {
-    const evento = Evento.findById(id);
+    const evento = await Evento.findById(eventoId);
     if (!evento) {
       return res.status(404).json({
         ok: false,
         msg: "No se encontro el evento",
       });
     }
-    evento = {...evento, ...req.body};
-    evento.save();
-    
+
+    if (evento.user.toString() !== uid) {
+      return res.status(401).json({
+        ok: false,
+        msg: "No tiene permiso para editar este evento",
+      });
+    }
+
+    const newEvento = { ...req.body, user: uid };
+
+    const eventoActualizado = await Evento.findByIdAndUpdate(
+      eventoId,
+      newEvento,
+      { new: true }
+    );
+
+    res.json({
+      ok: true,
+      evento: eventoActualizado,
+    });
   } catch (error) {
     console.log(error);
     return res.status(500).json({
@@ -60,17 +81,41 @@ const actualizarEvento = (req, res = response) => {
       msg: "Error inesperado",
     });
   }
-  res.json({
-    ok: true,
-    msg: "actualizarEvento",
-  });
 };
 
-const eliminarEvento = (req, res = response) => {
-  res.json({
-    ok: true,
-    msg: "eliminarEvento",
-  });
+const eliminarEvento = async (req, res = response) => {
+  const eventoId = req.params.id;
+  const { uid } = req;
+  console.log(uid);
+  try {
+    const evento = await Evento.findById(eventoId);
+    if (!evento) {
+      return res.status(404).json({
+        ok: false,
+        msg: "No se encontro el evento",
+      });
+    }
+
+    if (evento.user.toString() !== uid) {
+      return res.status(401).json({
+        ok: false,
+        msg: "No tiene permiso para eliminar este evento",
+      });
+    }
+
+    await Evento.findByIdAndDelete(eventoId);
+
+    res.json({
+      ok: true,
+      msg: "Evento eliminado",
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      ok: false,
+      msg: "Error inesperado",
+    });
+  }
 };
 
 module.exports = {
